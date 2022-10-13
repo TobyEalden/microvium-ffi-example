@@ -44,7 +44,7 @@ ${cSignature} {
   mvm_Value _result;
 
   // Call the JS function
-  mvm_TeError err = mvm_call(${appName}_vm, _vmExports[${exportInfo.index}], &_result, ${args.length ? '_args' : 'NULL'}, ${args.length});
+  mvm_TeError err = mvm_call(_vm, _vmExports[${exportInfo.index}], &_result, ${args.length ? '_args' : 'NULL'}, ${args.length});
   if (err != MVM_E_SUCCESS) MVM_FATAL_ERROR(_vm, err);
 
   // Convert/return the result
@@ -80,7 +80,7 @@ ${wrapperSignature} {
   ${returnType === 'void' ? '' : `${typeToC(returnType)} __result = `}${name}(${join(map(args, a => a[1]), ', ')});
 
   // Convert the result
-  ${returnType === 'void' ? `*_result = mvm_undefined;` : `*_result = ${emitIncomingConversion(returnType, '__result')}` }
+  ${returnType === 'void' ? `*_result = mvm_undefined;` : `*_result = ${emitIncomingConversion(returnType, '__result')};` }
 
   return MVM_E_SUCCESS;
 }
@@ -100,7 +100,7 @@ function emitImportArg(arg, i) {
  * Run a function when the VM is restored
  */
 export function onRestore(func) {
-  onRestoreListeners.push();
+  onRestoreListeners.push(func);
 }
 
 function emitArg(arg) {
@@ -218,7 +218,7 @@ void ${appName}_restore(const uint8_t* snapshot, size_t snapshotSize) {
   err = mvm_restore(&${appName}_vm, (MVM_LONG_PTR_TYPE)snapshot, snapshotSize, NULL, resolveImport);
   if (err != MVM_E_SUCCESS) MVM_FATAL_ERROR(_vm, err);
 
-  err = mvm_resolveExports(&${appName}_vm, _vmExportsIDs, _vmExports, ${exports.length});
+  err = mvm_resolveExports(${appName}_vm, _vmExportsIDs, _vmExports, ${exports.length});
   if (err != MVM_E_SUCCESS) MVM_FATAL_ERROR(_vm, err);
 
   runRestoreEvents();
@@ -233,7 +233,10 @@ void ${appName}_free() {
 static mvm_TeError resolveImport(mvm_HostFunctionID hostFunctionID, void* context, mvm_TfHostFunction* out_hostFunction) {
   ${!imports.length ? `// There are no exports\n  return MVM_E_FUNCTION_NOT_FOUND;` : `
   for (int i = 0; i < ${imports.length}; i++) {
-    if (_vmImports[i].id == hostFunctionID) return _vmImports[i].func;
+    if (_vmImports[i].id == hostFunctionID) {
+      *out_hostFunction = _vmImports[i].func;
+      return MVM_E_SUCCESS;
+    }
   }
   return MVM_E_FUNCTION_NOT_FOUND;
   `}

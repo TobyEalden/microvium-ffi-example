@@ -1,6 +1,6 @@
 import { exportToC } from './ffi.js';
 
-exportToC('void', 'mvm_newObject', [],
+exportToC('any', 'mvm_newObject', [],
   () => {
     return {}
   }
